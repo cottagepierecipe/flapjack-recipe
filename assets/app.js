@@ -53,17 +53,24 @@
     });
   });
 
-  /* ---------- Timers ---------- */
+  /* ---------- Timers: the cottage-pattern tool, for these recipes ---------- */
   var LS_KEY = "fr-timers";
   var timers = [];
   try { timers = JSON.parse(localStorage.getItem(LS_KEY) || "[]"); } catch (e) { timers = []; }
-  var dock = document.querySelector(".timer-dock");
-  var audioCtx = null;
+  (function () {
+    var now0 = Date.now();
+    timers = timers.filter(function (t) { return !t.done || (!t.ack && now0 - (t.doneAt || 0) < 86400000); });
+    timers.forEach(function (t) { if (!t.total) t.total = t.remain || 1; });
+  })();
+  var dock = document.getElementById("dock");
+  var audioCtx = null, soundOn = false, ringing = false, ringTimer = null;
 
   function save() { try { localStorage.setItem(LS_KEY, JSON.stringify(timers)); } catch (e) {} }
   function beep() {
+    if (!soundOn) return;
     try {
       audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+      if (audioCtx.state === "suspended") audioCtx.resume();
       var t = audioCtx.currentTime;
       [0, 0.35, 0.7].forEach(function (off) {
         var o = audioCtx.createOscillator(), g = audioCtx.createGain();
@@ -81,48 +88,171 @@
     var sss = ss < 10 ? "0" + ss : String(ss);
     return (h > 0 ? h + ":" : "") + mm + ":" + sss;
   }
+  function remainOf(t, now) { return t.done ? 0 : (t.running ? t.endAt - now : t.remain); }
+  function soonest(now) {
+    var best = null;
+    timers.forEach(function (t) {
+      if (t.done) return;
+      var r = remainOf(t, now);
+      if (best === null || r < best.r) best = { t: t, r: r };
+    });
+    return best;
+  }
+  function syncAlarmButtons() {
+    document.querySelectorAll("[data-stop-alarm]").forEach(function (b) {
+      b.style.display = ringing ? "" : "none";
+    });
+  }
+  function startRinging() {
+    if (ringing) return;
+    ringing = true;
+    beep();
+    ringTimer = setInterval(beep, 2500);
+    syncAlarmButtons();
+  }
+  function stopRinging() {
+    ringing = false;
+    if (ringTimer) { clearInterval(ringTimer); ringTimer = null; }
+    syncAlarmButtons();
+  }
+  function mkBtn(label, cls, fn) {
+    var b = document.createElement("button");
+    b.type = "button"; b.className = cls; b.textContent = label;
+    b.addEventListener("click", fn);
+    return b;
+  }
+  function itemFor(t, i, now) {
+    var item = document.createElement("div");
+    item.className = "timer-item" + (t.done ? " done" : "");
+    item.setAttribute("data-idx", String(i));
+    var row = document.createElement("div"); row.className = "row";
+    var left = document.createElement("div");
+    var nm = document.createElement("div"); nm.style.fontWeight = "700"; nm.textContent = t.name;
+    var tm = document.createElement("div"); tm.className = "bigtime";
+    tm.style.fontFamily = "var(--font-display)"; tm.style.fontSize = "1.4rem";
+    tm.textContent = t.done ? "Time's up!" : fmtTime(remainOf(t, now));
+    left.appendChild(nm); left.appendChild(tm); row.appendChild(left);
+    var ctr = document.createElement("div"); ctr.className = "tcontrols";
+    if (!t.done) {
+      ctr.appendChild(mkBtn(t.running ? "Pause" : "Resume", "tbtn alt", function () {
+        if (t.running) { t.remain = Math.max(0, t.endAt - Date.now()); t.running = false; }
+        else { t.endAt = Date.now() + t.remain; if ((t.total || 0) < t.remain) t.total = t.remain; t.running = true; }
+        save(); render();
+      }));
+      ctr.appendChild(mkBtn("+1 min", "tbtn alt", function () {
+        if (t.running) { t.endAt += 60000; } else { t.remain += 60000; }
+        t.total = (t.total || 0) + 60000; save(); render();
+      }));
+      ctr.appendChild(mkBtn("Cancel", "tbtn alt", function () { timers.splice(i, 1); save(); render(); }));
+    } else {
+      ctr.appendChild(mkBtn("OK", "tbtn", function () {
+        timers.splice(i, 1);
+        if (!timers.some(function (x) { return x.done; })) stopRinging();
+        save(); render();
+      }));
+    }
+    row.appendChild(ctr); item.appendChild(row);
+    return item;
+  }
   function render() {
-    if (!dock) return;
     var now = Date.now();
-    timers = timers.filter(function (t) { return !t.done || now - t.doneAt < 60000; });
-    if (!timers.length) { dock.classList.remove("show"); dock.innerHTML = ""; return; }
-    dock.classList.add("show");
-    dock.innerHTML = "";
-    timers.forEach(function (t, i) {
-      var row = document.createElement("div");
-      var remain = t.running ? t.endAt - now : t.remain;
-      var name = document.createElement("div"); name.className = "t-name"; name.textContent = t.name;
-      var time = document.createElement("div"); time.className = "t-time";
-      time.textContent = t.done ? "Time's up!" : fmtTime(remain);
-      row.appendChild(name); row.appendChild(time);
-      if (!t.done) {
-        var toggle = document.createElement("button");
-        toggle.textContent = t.running ? "Pause" : "Resume";
-        toggle.addEventListener("click", function () {
-          if (t.running) { t.remain = Math.max(0, t.endAt - Date.now()); t.running = false; }
-          else { t.endAt = Date.now() + t.remain; t.running = true; }
-          save(); render();
-        });
-        var cancel = document.createElement("button");
-        cancel.className = "alt"; cancel.textContent = "Cancel";
-        cancel.addEventListener("click", function () { timers.splice(i, 1); save(); render(); });
-        row.appendChild(toggle); row.appendChild(cancel);
-      } else {
-        var ok = document.createElement("button"); ok.textContent = "OK";
-        ok.addEventListener("click", function () { timers.splice(i, 1); save(); render(); });
-        row.appendChild(ok);
+    document.querySelectorAll("[data-timer-list]").forEach(function (list) {
+      list.innerHTML = "";
+      if (!timers.length) {
+        if (list.closest(".timer-panel")) {
+          var p = document.createElement("p");
+          p.style.margin = "0";
+          p.textContent = "No timers yet. Set a label and time above, then choose \u201CAdd & Start\u201D.";
+          list.appendChild(p);
+        }
+        return;
       }
-      dock.appendChild(row);
+      timers.forEach(function (t, i) { list.appendChild(itemFor(t, i, now)); });
+    });
+    tickFaces(now);
+  }
+  function tickFaces(now) {
+    var s = soonest(now);
+    var anyDone = timers.some(function (t) { return t.done; });
+    document.querySelectorAll("[data-ring]").forEach(function (fg) {
+      var C = 326.7;
+      if (anyDone || !s) fg.style.strokeDashoffset = "0";
+      else {
+        var f = Math.max(0, Math.min(1, s.r / (s.t.total || s.r || 1)));
+        fg.style.strokeDashoffset = String(C * (1 - f));
+      }
+    });
+    document.querySelectorAll("[data-ring-time]").forEach(function (el) {
+      el.textContent = anyDone ? "0:00" : (s ? fmtTime(s.r) : "00:00");
+    });
+    var pillStatus = document.getElementById("headTimerStatus");
+    if (pillStatus) pillStatus.textContent = anyDone ? "a timer has finished" : (s ? fmtTime(s.r) + " left" : "none running");
+    var sum = document.getElementById("dockSummary");
+    if (sum) sum.textContent = anyDone ? "Time's up!" : (s ? fmtTime(s.r) + " remaining" : "No timer running");
+    document.querySelectorAll(".timer-item .bigtime").forEach(function (el) {
+      var item = el.closest(".timer-item");
+      if (!item) return;
+      var t = timers[parseInt(item.getAttribute("data-idx"), 10)];
+      if (t) el.textContent = t.done ? "Time's up!" : fmtTime(remainOf(t, now));
     });
   }
   setInterval(function () {
     var now = Date.now(), changed = false;
     timers.forEach(function (t) {
-      if (t.running && !t.done && t.endAt <= now) { t.done = true; t.doneAt = now; t.running = false; beep(); changed = true; }
+      if (t.running && !t.done && t.endAt <= now) { t.done = true; t.doneAt = now; t.running = false; changed = true; }
     });
-    if (timers.length) render();
-    if (changed) save();
+    if (changed) {
+      save();
+      if (timers.some(function (t) { return t.done; })) startRinging();
+      render();
+    } else if (timers.length) {
+      tickFaces(now);
+    }
   }, 500);
+
+  /* Panel creator controls (the dock panel has none — it only mirrors) */
+  document.querySelectorAll("[data-timer-panel]").forEach(function (panel) {
+    var nameEl = panel.querySelector("[data-tname]");
+    if (!nameEl) return;
+    var hEl = panel.querySelector("[data-th]"), mEl = panel.querySelector("[data-tm]"), sEl = panel.querySelector("[data-ts]");
+    var status = panel.querySelector("[data-sound-status]");
+    function soundReady(note) {
+      try {
+        audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+        if (audioCtx.state === "suspended") audioCtx.resume();
+      } catch (e) {}
+      soundOn = true;
+      if (status && note) status.textContent = note;
+    }
+    panel.querySelectorAll("[data-preset]").forEach(function (b) {
+      b.addEventListener("click", function () {
+        var sec = parseInt(b.getAttribute("data-preset"), 10) || 0;
+        hEl.value = Math.floor(sec / 3600);
+        mEl.value = Math.floor((sec % 3600) / 60);
+        sEl.value = sec % 60;
+      });
+    });
+    panel.querySelector("[data-enable-sound]").addEventListener("click", function () {
+      soundReady("Sound is on. The alarm will ring here while this page stays open.");
+    });
+    panel.querySelector("[data-test-alarm]").addEventListener("click", function () {
+      soundReady("Sound is on. The alarm will ring here while this page stays open.");
+      beep();
+    });
+    panel.querySelector("[data-stop-alarm]").addEventListener("click", function () {
+      timers = timers.filter(function (t) { return !t.done; });
+      stopRinging(); save(); render();
+    });
+    panel.querySelector("[data-add-timer]").addEventListener("click", function () {
+      var secs = (parseInt(hEl.value, 10) || 0) * 3600 + (parseInt(mEl.value, 10) || 0) * 60 + (parseInt(sEl.value, 10) || 0);
+      if (secs <= 0) { mEl.focus(); return; }
+      var name = (nameEl.value || "").trim() || "Timer";
+      timers.push({ name: name, endAt: Date.now() + secs * 1000, remain: secs * 1000, total: secs * 1000, running: true, done: false, doneAt: 0, ack: false });
+      save(); render();
+    });
+  });
+
+  /* Step timers feed the same tool */
   document.querySelectorAll(".step-timer").forEach(function (btn) {
     btn.addEventListener("click", function () {
       var mins = parseFloat(btn.getAttribute("data-minutes"));
@@ -130,11 +260,29 @@
       var step = btn.closest("li");
       var titleEl = step ? (step.querySelector("strong") || step.querySelector("h4")) : null;
       var title = titleEl ? titleEl.textContent : "Timer";
-      timers.push({ name: title.trim(), endAt: Date.now() + mins * 60000, remain: mins * 60000, running: true, done: false, doneAt: 0 });
+      timers.push({ name: title.trim(), endAt: Date.now() + mins * 60000, remain: mins * 60000, total: mins * 60000, running: true, done: false, doneAt: 0, ack: false });
       save(); render();
       if (dock) dock.scrollIntoView({ block: "nearest", behavior: "smooth" });
     });
   });
+
+  /* Dock open/close + header pill */
+  var dockHead = document.getElementById("dockHead");
+  if (dockHead && dock) {
+    dockHead.addEventListener("click", function () {
+      var open = dock.classList.toggle("open");
+      dockHead.setAttribute("aria-expanded", String(open));
+      var ch = document.getElementById("dockChev");
+      if (ch) ch.textContent = open ? "\u25BC Close" : "\u25B2 Open";
+    });
+  }
+  var pillBtn = document.getElementById("headTimerBtn");
+  if (pillBtn && dock) {
+    pillBtn.addEventListener("click", function () {
+      if (!dock.classList.contains("open") && dockHead) dockHead.click();
+      dock.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    });
+  }
   render();
 
   /* ---------- Cook mode (wake lock) ---------- */
@@ -179,7 +327,7 @@
   /* ---------- Hero timer button: go to the recipe's timers ---------- */
   document.querySelectorAll(".hero-timer-btn").forEach(function (btn) {
     btn.addEventListener("click", function () {
-      var r = document.querySelector("#recipe");
+      var r = document.querySelector("#timer-panel") || document.querySelector("#recipe");
       if (r) r.scrollIntoView({ behavior: "smooth", block: "start" });
     });
   });
@@ -205,36 +353,6 @@
   document.querySelectorAll(".print-btn").forEach(function (btn) {
     btn.addEventListener("click", function () { window.print(); });
   });
-
-  /* ---------- Header timer pill: mirrors the dock (cottage pattern) ---------- */
-  var pillBtn = document.getElementById("headTimerBtn");
-  var pillStatus = document.getElementById("headTimerStatus");
-  function updatePill() {
-    if (!pillStatus) return;
-    var now = Date.now();
-    if (timers.some(function (t) { return t.done; })) {
-      pillStatus.textContent = "a timer has finished";
-      return;
-    }
-    var next = null;
-    timers.forEach(function (t) {
-      var r = t.running ? t.endAt - now : t.remain;
-      if (next === null || r < next) next = r;
-    });
-    pillStatus.textContent = next === null ? "none running" : fmtTime(next) + " left";
-  }
-  if (pillBtn) {
-    pillBtn.addEventListener("click", function () {
-      if (dock && dock.classList.contains("show")) {
-        dock.scrollIntoView({ block: "nearest", behavior: "smooth" });
-      } else {
-        var r = document.querySelector("#recipe");
-        if (r) r.scrollIntoView({ behavior: "smooth", block: "start" });
-      }
-    });
-  }
-  setInterval(updatePill, 500);
-  updatePill();
 
   /* ---------- Mobile menu ---------- */
   var menuBtn = document.querySelector(".menu-btn");
