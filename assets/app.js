@@ -1,6 +1,6 @@
 /* Flapjack Recipe — shared behaviour
    Timers (multiple, named, persistent), serving scaler, FAQ accordion,
-   cook mode with wake lock, print, cookie choices, mailto contact form.
+   cook mode with wake lock, print, header timer pill, mailto contact form.
    No analytics, no marketing cookies, no tracking. */
 (function () {
   "use strict";
@@ -206,24 +206,43 @@
     btn.addEventListener("click", function () { window.print(); });
   });
 
-  /* ---------- Cookie choices (this site sets no tracking cookies) ---------- */
-  var bar = document.querySelector(".cookie-bar");
-  if (bar) {
-    var choice = null;
-    try { choice = localStorage.getItem("fr-cookie-choice"); } catch (e) {}
-    if (!choice) bar.classList.add("show");
-    bar.querySelectorAll("button[data-choice]").forEach(function (b) {
-      b.addEventListener("click", function () {
-        try { localStorage.setItem("fr-cookie-choice", b.getAttribute("data-choice")); } catch (e) {}
-        bar.classList.remove("show");
-      });
+  /* ---------- Header timer pill: mirrors the dock (cottage pattern) ---------- */
+  var pillBtn = document.getElementById("headTimerBtn");
+  var pillStatus = document.getElementById("headTimerStatus");
+  function updatePill() {
+    if (!pillStatus) return;
+    var now = Date.now();
+    if (timers.some(function (t) { return t.done; })) {
+      pillStatus.textContent = "a timer has finished";
+      return;
+    }
+    var next = null;
+    timers.forEach(function (t) {
+      var r = t.running ? t.endAt - now : t.remain;
+      if (next === null || r < next) next = r;
+    });
+    pillStatus.textContent = next === null ? "none running" : fmtTime(next) + " left";
+  }
+  if (pillBtn) {
+    pillBtn.addEventListener("click", function () {
+      if (dock && dock.classList.contains("show")) {
+        dock.scrollIntoView({ block: "nearest", behavior: "smooth" });
+      } else {
+        var r = document.querySelector("#recipe");
+        if (r) r.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
     });
   }
-  var reset = document.querySelector(".cookie-reset");
-  if (reset) {
-    reset.addEventListener("click", function () {
-      try { localStorage.removeItem("fr-cookie-choice"); } catch (e) {}
-      if (bar) bar.classList.add("show");
+  setInterval(updatePill, 500);
+  updatePill();
+
+  /* ---------- Mobile menu ---------- */
+  var menuBtn = document.querySelector(".menu-btn");
+  var mainNav = document.getElementById("main-nav");
+  if (menuBtn && mainNav) {
+    menuBtn.addEventListener("click", function () {
+      var open = mainNav.classList.toggle("open");
+      menuBtn.setAttribute("aria-expanded", String(open));
     });
   }
 

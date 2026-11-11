@@ -37,8 +37,12 @@ p{margin:0 0 1em}
 .header-in{max-width:1060px;margin:0 auto;padding:10px 20px;display:flex;align-items:center;gap:18px;flex-wrap:wrap}
 .brand{font-family:var(--font-display);font-weight:800;font-size:1.4rem;color:var(--forest);text-decoration:none}
 .brand span{color:var(--terra)}
-.main-nav{margin-left:auto}
-.main-nav ul{list-style:none;display:flex;gap:4px;margin:0;padding:0;flex-wrap:wrap}
+.main-nav{margin-left:auto;display:flex;align-items:center;gap:6px}
+.main-nav ul{list-style:none;display:flex;gap:4px;margin:0;padding:0;flex-wrap:wrap;align-items:center}
+.menu-btn{display:none}
+.header-timer{background:var(--terra);color:#fff;border:none;border-radius:999px;padding:10px 18px;
+  font-weight:700;font-family:var(--font-body);font-size:.98rem;cursor:pointer;white-space:nowrap;min-height:44px}
+.header-timer:hover{background:var(--terra-dark)}
 .main-nav a{display:block;padding:8px 12px;border-radius:999px;color:var(--ink);text-decoration:none;font-weight:600;font-size:.98rem}
 .main-nav a:hover{background:var(--sage);color:var(--forest)}
 /* Breadcrumb */
@@ -100,7 +104,7 @@ figure.featured img{width:100%}
   padding:10px 18px;font-weight:600;cursor:pointer;font-family:var(--font-body);font-size:.98rem;min-height:46px;box-shadow:var(--shadow-sm)}
 .ctl-btn:hover{background:var(--sage)}
 .ctl-btn[aria-pressed="true"]{background:var(--forest);color:#fff;border-color:var(--forest)}
-body.recipe-only .site-header,body.recipe-only .site-footer,body.recipe-only .cookie-bar{display:none}
+body.recipe-only .site-header,body.recipe-only .site-footer{display:none}
 body.recipe-only main .wrap>*:not(.recipe-card):not(.card-controls){display:none}
 .ingredients{list-style:none;padding:0;margin:0 0 8px}
 .ingredients li{padding:7px 0;border-bottom:1px dashed var(--line)}
@@ -166,12 +170,7 @@ th{background:var(--sage);color:var(--ink);font-family:var(--font-display)}
 form.contact-form label{display:block;font-weight:600;margin:14px 0 5px}
 form.contact-form input,form.contact-form textarea,form.contact-form select{width:100%;padding:11px 13px;
   border:1px solid var(--line);border-radius:var(--radius-s);font:inherit;background:var(--paper)}
-/* Cookie bar */
-.cookie-bar{position:fixed;left:0;right:0;bottom:0;z-index:90;background:var(--paper);border-top:1px solid var(--line);
-  box-shadow:0 -6px 24px rgba(24,61,50,.12);padding:16px 20px;display:none}
-.cookie-bar.show{display:block}
-.cookie-bar .wrap{display:flex;gap:16px;align-items:center;flex-wrap:wrap}
-.cookie-bar p{margin:0;flex:1 1 320px;font-size:.97rem}
+
 /* Reveal animation (subtle, motion-safe) */
 @media (prefers-reduced-motion:no-preference){
   .reveal{opacity:0;transform:translateY(14px);transition:opacity .6s ease,transform .6s ease}
@@ -182,7 +181,7 @@ body.cook-mode .method p{font-size:1.2rem}
 body.cook-mode .recipe-card{box-shadow:0 0 0 3px var(--forest)}
 /* Print */
 @media print{
-  .site-header,.site-footer,.timer-dock,.cookie-bar,.hero-actions,.step-timer,.scaler,.breadcrumb,.card-controls,.quick-cards{display:none!important}
+  .site-header,.site-footer,.timer-dock,.hero-actions,.step-timer,.scaler,.breadcrumb,.card-controls,.quick-cards{display:none!important}
   body{background:#fff;font-size:12pt}
   .recipe-card{box-shadow:none;border:none;padding:0}
 }
@@ -199,7 +198,6 @@ body.cook-mode .recipe-card{box-shadow:0 0 0 3px var(--forest)}
 /* --- Cottage-copy layout (Michael's instruction, 2026-11-09) --- */
 .brand img{height:64px;width:auto}
 .header-cta{margin-left:8px;white-space:nowrap}
-@media (max-width:900px){.header-cta{display:none}}
 .footer-logo{width:230px;height:auto;margin-bottom:12px}
 .kicker{letter-spacing:.14em;text-transform:uppercase;font-size:13px;font-weight:700;color:var(--terra-dark);margin-bottom:10px}
 .intro{padding:34px 0 6px}
@@ -260,3 +258,25 @@ body.cook-mode .recipe-card{box-shadow:0 0 0 3px var(--forest)}
 .watch-fig{margin:22px 0}
 .watch-fig img{width:100%;height:auto;border-radius:14px}
 .watch-fig video{width:100%;height:auto;border-radius:14px;display:block;background:#101410}
+
+/* Recipes dropdown: View All footer link */
+.main-nav ul.drop li.drop-all{border-top:1px solid var(--line);margin-top:6px;padding-top:6px}
+.main-nav ul.drop li.drop-all a{color:var(--terra-dark);font-weight:700}
+
+/* Header on mobile: cottage pattern (Michael's order, 2026-11-11) —
+   logo + Menu button on one row, timer pill full-width beneath, nav panel below */
+@media (max-width:900px){
+  .menu-btn{display:inline-flex;align-items:center;margin-left:auto;background:none;border:2px solid var(--forest);
+    color:var(--forest);border-radius:10px;padding:9px 16px;font-weight:700;font-family:var(--font-body);
+    font-size:1rem;cursor:pointer;min-height:48px}
+  .header-timer{order:3;flex:1 1 100%;margin-top:6px}
+  .main-nav{order:4;display:none;margin-left:0;flex:1 1 100%}
+  .main-nav.open{display:block}
+  .main-nav ul{flex-direction:column;align-items:stretch;gap:2px}
+  .main-nav a{padding:11px 12px}
+  .drop-btn{width:100%;text-align:left;padding:11px 12px}
+  .main-nav ul.drop{position:static;display:none;box-shadow:none;border:none;background:transparent;
+    padding:0 0 4px 16px;min-width:0}
+  .main-nav .has-drop.open ul.drop{display:flex}
+  .header-cta{display:flex;justify-content:center;margin:10px 0 4px}
+}
