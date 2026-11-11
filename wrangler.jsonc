@@ -1,0 +1,8 @@
+{
+  "name": "flapjack-recipe",
+  "compatibility_date": "2026-11-11",
+  "assets": {
+    "directory": ".",
+    "not_found_handling": "404-page"
+  }
+}
