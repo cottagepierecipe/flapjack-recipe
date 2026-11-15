@@ -176,8 +176,15 @@ body.cook-mode .recipe-card{box-shadow:0 0 0 3px var(--forest)}
 @media print{
   .site-header,.site-footer,.dock,.timer-panel,.hero-actions,.step-timer,.scaler,.breadcrumb,.card-controls,.quick-cards{display:none!important}
   body{background:#fff;font-size:12pt}
+  .wrap > *:not(:has(.recipe-card)){display:none!important}
+  .wrap *:has(> .recipe-card) > *:not(.recipe-card){display:none!important}
   .recipe-card{box-shadow:none;border:none;padding:0}
+  .recipe-card figure{display:none!important}
+  .print-head{display:block!important;border-bottom:2px solid #183D32;margin-bottom:14px;padding-bottom:8px}
+  .print-title{font-family:Georgia,serif;font-size:20pt;margin:0 0 4px}
+  .print-meta{margin:0;font-size:11pt}
 }
+.print-head{display:none}
 @media (max-width:640px){
   .hero-card{margin-top:-52px}
   .hero-panel{padding:22px 20px}
