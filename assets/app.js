@@ -38,6 +38,14 @@
     return (r % 1 === 0) ? String(r) : String(r);
   }
   document.querySelectorAll(".recipe-card").forEach(function (card) {
+    var pt0 = card.querySelector(".print-title");
+    if (pt0 && !pt0.textContent) { var h0 = document.querySelector("h1"); if (h0) pt0.textContent = h0.textContent; }
+    var py0 = card.querySelector(".print-yield");
+    if (py0 && !py0.textContent) {
+      card.querySelectorAll(".times li").forEach(function (li) {
+        if (li.textContent.indexOf("Makes") === 0) py0.textContent = li.textContent.replace("Makes:", "Makes") + ".";
+      });
+    }
     var btns = card.querySelectorAll(".scaler button[data-scale]");
     if (!btns.length) return;
     btns.forEach(function (b) {
@@ -49,6 +57,37 @@
           var base = parseFloat(el.getAttribute("data-amt"));
           if (!isNaN(base)) el.textContent = fmt(base * scale, base);
         });
+        var makesLi = null;
+        card.querySelectorAll(".times li").forEach(function (li) {
+          if (li.textContent.indexOf("Makes") === 0) makesLi = li;
+        });
+        if (makesLi) {
+          if (!makesLi.getAttribute("data-base")) {
+            var mm = makesLi.textContent.match(/(\d+)\s*(.*)$/);
+            if (mm) { makesLi.setAttribute("data-base", mm[1]); makesLi.setAttribute("data-unit", mm[2]); }
+          }
+          var baseN = parseFloat(makesLi.getAttribute("data-base"));
+          if (!isNaN(baseN)) {
+            var unit = makesLi.getAttribute("data-unit") || "bars";
+            makesLi.innerHTML = "<strong>Makes:</strong> " + Math.round(baseN * scale) + " " + unit;
+            var py = card.querySelector(".print-yield");
+            if (py) py.textContent = "Makes " + Math.round(baseN * scale) + " " + unit + ".";
+          }
+        }
+        var tray = card.querySelector(".scaler-tray");
+        if (tray) {
+          tray.textContent = scale === 0.5
+            ? "Half batch: a 2lb loaf tin or an 18cm tin suits it, or bake it in the 20cm tin as a thinner slab and check a few minutes early."
+            : scale === 2
+            ? "Double batch: use two 20cm tins, or one large traybake tin \u2014 a single 20cm tin would be far too deep. Swapping the tins' shelf positions halfway helps them bake evenly."
+            : "";
+        }
+        var ps = card.querySelector(".print-scale");
+        if (ps) ps.textContent = scale === 1
+          ? "Quantities shown: the original recipe (\u00d71)."
+          : "Quantities shown: scaled \u00d7" + (scale === 0.5 ? "\u00bd" : "2") + ".";
+        var pt = card.querySelector(".print-title");
+        if (pt && !pt.textContent) { var h = document.querySelector("h1"); if (h) pt.textContent = h.textContent; }
       });
     });
   });
